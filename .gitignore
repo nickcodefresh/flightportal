@@ -1,0 +1,7 @@
+UserBenchmark/
+.vscode/settings.json
+libArchive/
+stubArchive/
+secrets_local.py
+__pycache__/
+
