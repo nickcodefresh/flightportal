@@ -1,3 +1,20 @@
+
+> ⚠️ **Fork Notice**
+>
+> This project is a **fork** of the original repository:
+> **[https://github.com/smartbutnot/flightportal](https://github.com/smartbutnot/flightportal)**  
+>
+> This fork updates to code to work on the newer [Matrix Portal S3](https://learn.adafruit.com/adafruit-matrixportal-s3/overview) board (as opposed to the [Matrix Portal M4](https://learn.adafruit.com/adafruit-matrixportal-m4/overview).
+> The code has been updated to use CircuitPython 10.0x.
+>
+> To use this, create a file called `secrets_local.py` file in the root of the repo, containing your wifi details:
+> ```
+> WIFI_SSID = "SKYYTHHI"
+> WIFI_PASSWORD = "s9qGnEEaj3Cy"
+> ```
+> Then just copy all of the files to the board and enjoy!
+
+
 # flightportal
 Project for displaying the details of planes overhead on an Adafruit MatrixPortal and LED matrix
 

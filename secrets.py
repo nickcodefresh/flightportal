@@ -10,9 +10,8 @@ secrets = {
     "ssid": WIFI_SSID,
     "password": WIFI_PASSWORD,
     # area to search for flights: top latitude, bottom latitude, left longitude, right longitude
-    # (so this example is central London)
+    # (so this example is greater London)
+    # "bounds_box": "51.692,51.287,-0.510,0.334",
     # my house
-    # 'bounds_box' : '51.6,51.4,-0.3,-0.1'
-    # greater london
-    "bounds_box": "51.692,51.287,-0.510,0.334",
+    "bounds_box" : "51.6,51.4,-0.3,-0.1"
 }

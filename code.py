@@ -150,7 +150,7 @@ label2.y = 32
 
 label3 = adafruit_display_text.label.Label(FONT, color=ROW_THREE_COLOUR, text="")
 label3.x = 1
-label3.y = 43
+label3.y = 42
 
 # text strings to go in the labels
 label1_short = ""
@@ -175,13 +175,13 @@ def checkConnection():
     attempts = 10
     attempt = 1
     while (not wifi.radio.connected) and attempt < attempts:
-        print("Connect attempt " + str(attempt) + " of " + str(attempts))
+        print(f"Connect attempt {attempt} of {attempts}")
         print("Reconnecting to WiFi...")
         w.feed()
         try:
             wifi.radio.connect(secrets["ssid"], secrets["password"])
         except OSError as e:
-            print(e.__class__.__name__ + "--------------------------------------")
+            print(f"{e.__class__.__name__}--------------------------------------")
             print(e)
         attempt += 1
     if wifi.radio.connected:
@@ -211,11 +211,7 @@ def get_flights():
                 if len(flight_info) > 13:
                     elapsed_time = time.monotonic() - start_time
                     print(
-                        "Fetched flight "
-                        + flight_id
-                        + " in "
-                        + str(elapsed_time)
-                        + " seconds"
+                        f"Fetched flight {flight_id} in {elapsed_time} seconds"
                     )
                     return flight_id
     else:
@@ -274,7 +270,7 @@ def get_flight_details(fn):
                     # print(json_bytes.decode('utf-8'))
 
                     # Stop reading chunks
-                    print("Details lookup saved " + str(trail_end) + " bytes.")
+                    print(f"Details lookup saved {trail_end} bytes.")
                     gc.collect()
                     return True
     # Handle occasional URL fetching errors
@@ -334,9 +330,9 @@ def parse_details_json():
         # heading=long_json["trail"][0]["hd"]
 
         if flight_number:
-            print("Flight is called " + flight_number)
+            print(f"Flight is called {flight_number}")
         elif flight_callsign:
-            print("No flight number, callsign is " + flight_callsign)
+            print(f"No flight number, callsign is {flight_callsign}")
         else:
             print("No number or callsign for this flight.")
 
@@ -352,8 +348,8 @@ def parse_details_json():
 
         label1_short = flight_number
         label1_long = airline_name
-        label2_short = airport_origin_code + "-" + airport_destination_code
-        label2_long = airport_origin_name + "-" + airport_destination_name
+        label2_short = f"{airport_origin_code}-{airport_destination_code}"
+        label2_long = f"{airport_origin_name}-{airport_destination_name}"
         label3_short = aircraft_code
         label3_long = aircraft_model
 
@@ -448,7 +444,7 @@ while True:
             print("Same flight found, so keep showing it")
             display_flight()
         else:
-            print("New flight " + flight_id + " found, clear display")
+            print(f"New flight {flight_id} found, clear display")
             clear_flight()
             if get_flight_details(flight_id):
                 if parse_details_json():
