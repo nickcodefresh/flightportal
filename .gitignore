@@ -3,3 +3,4 @@ UserBenchmark/UserBenchmark.dat
 .vscode/settings.json
 libArchive/
 stubArchive/
+secrets_local.py

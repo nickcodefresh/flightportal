@@ -1,11 +1,6 @@
-import supervisor
-
-#supervisor.runtime.autoreload = False
-
 import time
 import board
 import terminalio
-#from adafruit_matrixportal.matrixportal import MatrixPortal
 from adafruit_portalbase.network import HttpError
 import adafruit_requests as requests
 import json
@@ -27,7 +22,7 @@ from watchdog import WatchDogMode
 # Release any existing displays
 displayio.release_displays()
 
-w.timeout = 16 # timeout in seconds
+w.timeout = 16  # timeout in seconds
 w.mode = WatchDogMode.RESET
 
 FONT = terminalio.FONT
@@ -60,19 +55,19 @@ PLANE_SPEED = 0.04
 # speed text labels will move - pause time per pixel shift in seconds
 TEXT_SPEED = 0.04
 
-#URLs
-FLIGHT_SEARCH_HEAD="https://data-cloud.flightradar24.com/zones/fcgi/feed.js?bounds="
-FLIGHT_SEARCH_TAIL="&faa=1&satellite=1&mlat=1&flarm=1&adsb=1&gnd=0&air=1&vehicles=0&estimated=0&maxage=14400&gliders=0&stats=0&ems=1&limit=1"
-FLIGHT_SEARCH_URL=FLIGHT_SEARCH_HEAD+BOUNDS_BOX+FLIGHT_SEARCH_TAIL
+# URLs
+FLIGHT_SEARCH_HEAD = "https://data-cloud.flightradar24.com/zones/fcgi/feed.js?bounds="
+FLIGHT_SEARCH_TAIL = "&faa=1&satellite=1&mlat=1&flarm=1&adsb=1&gnd=0&air=1&vehicles=0&estimated=0&maxage=14400&gliders=0&stats=0&ems=1&limit=1"
+FLIGHT_SEARCH_URL = FLIGHT_SEARCH_HEAD + BOUNDS_BOX + FLIGHT_SEARCH_TAIL
 
 # Used to get more flight details with a fr24 flight ID from the initial search
-FLIGHT_LONG_DETAILS_HEAD="https://data-live.flightradar24.com/clickhandler/?flight="
+FLIGHT_LONG_DETAILS_HEAD = "https://data-live.flightradar24.com/clickhandler/?flight="
 
 # Request headers
 rheaders = {
-     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:106.0) Gecko/20100101 Firefox/106.0",
-     "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
-     "accept": "application/json"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:106.0) Gecko/20100101 Firefox/106.0",
+    "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+    "accept": "application/json",
 }
 
 print("Connecting to WiFi...")
@@ -117,22 +112,30 @@ display = framebufferio.FramebufferDisplay(matrix, auto_refresh=True)
 # Some memory shenanigans - the matrixportal doesn't do great at assigning big
 # strings dynamically. So we create a big static array to put the JSON results
 # in each time.
-json_size=14336
-json_bytes=bytearray(json_size)
+json_size = 14336
+json_bytes = bytearray(json_size)
 
 # Little plane to scroll across when we find a flight overhead
 planeBmp = displayio.Bitmap(12, 12, 2)
 planePalette = displayio.Palette(2)
 planePalette[1] = PLANE_COLOUR
 planePalette[0] = 0x000000
-planeBmp[6,0]=planeBmp[6,1]=planeBmp[5,1]=planeBmp[4,2]=planeBmp[5,2]=planeBmp[6,2]=1
-planeBmp[9,3]=planeBmp[5,3]=planeBmp[4,3]=planeBmp[3,3]=1
-planeBmp[1,4]=planeBmp[2,4]=planeBmp[3,4]=planeBmp[4,4]=planeBmp[5,4]=planeBmp[6,4]=planeBmp[7,4]=planeBmp[8,4]=planeBmp[9,4]=1
-planeBmp[1,5]=planeBmp[2,5]=planeBmp[3,5]=planeBmp[4,5]=planeBmp[5,5]=planeBmp[6,5]=planeBmp[7,5]=planeBmp[8,5]=planeBmp[9,5]=1
-planeBmp[9,6]=planeBmp[5,6]=planeBmp[4,6]=planeBmp[3,6]=1
-planeBmp[6,9]=planeBmp[6,8]=planeBmp[5,8]=planeBmp[4,7]=planeBmp[5,7]=planeBmp[6,7]=1
+planeBmp[6, 0] = planeBmp[6, 1] = planeBmp[5, 1] = planeBmp[4, 2] = planeBmp[5, 2] = (
+    planeBmp[6, 2]
+) = 1
+planeBmp[9, 3] = planeBmp[5, 3] = planeBmp[4, 3] = planeBmp[3, 3] = 1
+planeBmp[1, 4] = planeBmp[2, 4] = planeBmp[3, 4] = planeBmp[4, 4] = planeBmp[5, 4] = (
+    planeBmp[6, 4]
+) = planeBmp[7, 4] = planeBmp[8, 4] = planeBmp[9, 4] = 1
+planeBmp[1, 5] = planeBmp[2, 5] = planeBmp[3, 5] = planeBmp[4, 5] = planeBmp[5, 5] = (
+    planeBmp[6, 5]
+) = planeBmp[7, 5] = planeBmp[8, 5] = planeBmp[9, 5] = 1
+planeBmp[9, 6] = planeBmp[5, 6] = planeBmp[4, 6] = planeBmp[3, 6] = 1
+planeBmp[6, 9] = planeBmp[6, 8] = planeBmp[5, 8] = planeBmp[4, 7] = planeBmp[5, 7] = (
+    planeBmp[6, 7]
+) = 1
 planeTg = displayio.TileGrid(planeBmp, pixel_shader=planePalette)
-planeG = displayio.Group(x=matrix.width+3,y=4)
+planeG = displayio.Group(x=matrix.width + 3, y=4)
 planeG.append(planeTg)
 
 # We can fit three rows of text on a panel, so one label for each.
@@ -150,12 +153,12 @@ label3.x = 1
 label3.y = 43
 
 # text strings to go in the labels
-label1_short=''
-label1_long=''
-label2_short=''
-label2_long=''
-label3_short=''
-label3_long=''
+label1_short = ""
+label1_long = ""
+label2_short = ""
+label2_long = ""
+label3_short = ""
+label3_long = ""
 
 # Initialize the main display group
 g = Group()
@@ -165,6 +168,7 @@ g.append(label3)
 
 display.root_group = g
 display.refresh()
+
 
 def checkConnection():
     print("Check and reconnect WiFi")
@@ -185,6 +189,7 @@ def checkConnection():
     else:
         print("Failed to connect.")
 
+
 # Look for flights overhead
 def get_flights():
 
@@ -192,23 +197,30 @@ def get_flights():
     print("Fetching flight...")
 
     try:
-        response=requests.get(url=FLIGHT_SEARCH_URL,headers=rheaders).json()
-    except (RuntimeError,OSError, HttpError, ValueError, requests) as e:
-        print(e.__class__.__name__+"--------------------------------------")
+        response = requests.get(url=FLIGHT_SEARCH_URL, headers=rheaders).json()
+    except (RuntimeError, OSError, HttpError, ValueError, requests) as e:
+        print(e.__class__.__name__ + "--------------------------------------")
         print(e)
         checkConnection()
         return False
 
-    if len(response)==3:
+    if len(response) == 3:
         for flight_id, flight_info in response.items():
             # the JSON has three main fields, we want the one that's a flight ID
-            if not (flight_id=="version" or flight_id=="full_count"):
-                if len(flight_info)>13:
+            if not (flight_id == "version" or flight_id == "full_count"):
+                if len(flight_info) > 13:
                     elapsed_time = time.monotonic() - start_time
-                    print("Fetched flight " + flight_id + " in " + str(elapsed_time) + " seconds")
+                    print(
+                        "Fetched flight "
+                        + flight_id
+                        + " in "
+                        + str(elapsed_time)
+                        + " seconds"
+                    )
                     return flight_id
     else:
         return False
+
 
 # Take the flight ID we found with a search, and load details about it
 def get_flight_details(fn):
@@ -219,62 +231,63 @@ def get_flight_details(fn):
     # about 9KB, we have 14K before we run out of room..
     global json_bytes
     global json_size
-    byte_counter=0
-    chunk_length=1024
+    byte_counter = 0
+    chunk_length = 1024
 
     # zero out any old data in the byte array
-    json_bytes[:] = b'\x00' * json_size
+    json_bytes[:] = b"\x00" * json_size
 
     # Get the URL response one chunk at a time
     try:
-        response=requests.get(url=FLIGHT_LONG_DETAILS_HEAD+fn,headers=rheaders)
+        response = requests.get(url=FLIGHT_LONG_DETAILS_HEAD + fn, headers=rheaders)
         for chunk in response.iter_content(chunk_size=chunk_length):
 
             # if the chunk will fit in the byte array, add it
-            if(byte_counter+chunk_length<=json_size):
-                for i in range(0,len(chunk)):
-                    json_bytes[i+byte_counter]=chunk[i]
+            if byte_counter + chunk_length <= json_size:
+                for i in range(0, len(chunk)):
+                    json_bytes[i + byte_counter] = chunk[i]
             else:
                 print("Exceeded max string size while parsing JSON")
                 return False
 
             # check if this chunk contains the "trail:" tag which is the last bit
             # we care about
-            trail_start=json_bytes.find((b"\"trail\":"))
-            byte_counter+=len(chunk)
+            trail_start = json_bytes.find((b'"trail":'))
+            byte_counter += len(chunk)
 
             # if it does, find the first/most recent of the many trail entries,
             # giving us things like speed and heading
-            if not trail_start==-1:
+            if not trail_start == -1:
                 # work out the location of the first } character after the
                 # "trail:" tag, giving us the first entry
-                trail_end=json_bytes[trail_start:].find((b"}"))
-                if not trail_end==-1:
-                    trail_end+=trail_start
+                trail_end = json_bytes[trail_start:].find((b"}"))
+                if not trail_end == -1:
+                    trail_end += trail_start
                     # characters to add to make the whole JSON object valid,
                     # since we're cutting off the end
-                    closing_bytes=b'}]}'
-                    for i in range (0,len(closing_bytes)):
-                        json_bytes[trail_end+i]=closing_bytes[i]
+                    closing_bytes = b"}]}"
+                    for i in range(0, len(closing_bytes)):
+                        json_bytes[trail_end + i] = closing_bytes[i]
                     # zero out the rest
-                    for i in range(trail_end+3,json_size):
-                        json_bytes[i]=0
+                    for i in range(trail_end + 3, json_size):
+                        json_bytes[i] = 0
                     # print(json_bytes.decode('utf-8'))
 
                     # Stop reading chunks
-                    print("Details lookup saved "+str(trail_end)+" bytes.")
+                    print("Details lookup saved " + str(trail_end) + " bytes.")
                     gc.collect()
                     return True
     # Handle occasional URL fetching errors
     except (RuntimeError, OSError, HttpError) as e:
-            print("Error--------------------------------------------------")
-            print(e)
-            return False
+        print("Error--------------------------------------------------")
+        print(e)
+        return False
 
     # If we got here we got through all the JSON without finding the right
     # trail entries
     print("Failed to find a valid trail entry in JSON")
     return False
+
 
 # Look at the byte array that fetch_details saved into and extract any
 # fields we want
@@ -284,50 +297,48 @@ def parse_details_json():
 
     try:
         # get the JSON from the bytes
-        long_json=json.loads(json_bytes)
+        long_json = json.loads(json_bytes)
 
         # Some available values from the JSON. Put the details URL and a
         # flight ID in your browser and have a look for more.
 
-        flight_number=long_json["identification"]["number"]["default"]
-        flight_callsign=long_json["identification"]["callsign"]
-        aircraft_code=long_json["aircraft"]["model"]["code"]
-        aircraft_model=long_json["aircraft"]["model"]["text"]
-        #aircraft_registration=long_json["aircraft"]["registration"]
-        airline_name=long_json["airline"]["name"]
-        #airline_short=long_json["airline"]["short"]
-        airport_origin_name=long_json["airport"]["origin"]["name"]
-        airport_origin_name=airport_origin_name.replace(" Airport","")
-        airport_origin_code=long_json["airport"]["origin"]["code"]["iata"]
-        #airport_origin_country=long_json["airport"]["origin"]["position"]["country"]["name"]
-        #airport_origin_country_code=long_json["airport"]["origin"]["position"]["country"]["code"]
-        #airport_origin_city=long_json["airport"]["origin"]["position"]["region"]["city"]
-        #airport_origin_terminal=long_json["airport"]["origin"]["info"]["terminal"]
-        airport_destination_name=long_json["airport"]["destination"]["name"]
-        airport_destination_name=airport_destination_name.replace(" Airport","")
-        airport_destination_code=long_json["airport"]["destination"]["code"]["iata"]
-        #airport_destination_country=long_json["airport"]["destination"]["position"]["country"]["name"]
-        #airport_destination_country_code=long_json["airport"]["destination"]["position"]["country"]["code"]
-        #airport_destination_city=long_json["airport"]["destination"]["position"]["region"]["city"]
-        #airport_destination_terminal=long_json["airport"]["destination"]["info"]["terminal"]
-        #time_scheduled_departure=long_json["time"]["scheduled"]["departure"]
-        #time_real_departure=long_json["time"]["real"]["departure"]
-        #time_scheduled_arrival=long_json["time"]["scheduled"]["arrival"]
-        #time_estimated_arrival=long_json["time"]["estimated"]["arrival"]
-        #latitude=long_json["trail"][0]["lat"]
-        #longitude=long_json["trail"][0]["lng"]
-        #altitude=long_json["trail"][0]["alt"]
-        #speed=long_json["trail"][0]["spd"]
-        #heading=long_json["trail"][0]["hd"]
-
+        flight_number = long_json["identification"]["number"]["default"]
+        flight_callsign = long_json["identification"]["callsign"]
+        aircraft_code = long_json["aircraft"]["model"]["code"]
+        aircraft_model = long_json["aircraft"]["model"]["text"]
+        # aircraft_registration=long_json["aircraft"]["registration"]
+        airline_name = long_json["airline"]["name"]
+        # airline_short=long_json["airline"]["short"]
+        airport_origin_name = long_json["airport"]["origin"]["name"]
+        airport_origin_name = airport_origin_name.replace(" Airport", "")
+        airport_origin_code = long_json["airport"]["origin"]["code"]["iata"]
+        # airport_origin_country=long_json["airport"]["origin"]["position"]["country"]["name"]
+        # airport_origin_country_code=long_json["airport"]["origin"]["position"]["country"]["code"]
+        # airport_origin_city=long_json["airport"]["origin"]["position"]["region"]["city"]
+        # airport_origin_terminal=long_json["airport"]["origin"]["info"]["terminal"]
+        airport_destination_name = long_json["airport"]["destination"]["name"]
+        airport_destination_name = airport_destination_name.replace(" Airport", "")
+        airport_destination_code = long_json["airport"]["destination"]["code"]["iata"]
+        # airport_destination_country=long_json["airport"]["destination"]["position"]["country"]["name"]
+        # airport_destination_country_code=long_json["airport"]["destination"]["position"]["country"]["code"]
+        # airport_destination_city=long_json["airport"]["destination"]["position"]["region"]["city"]
+        # airport_destination_terminal=long_json["airport"]["destination"]["info"]["terminal"]
+        # time_scheduled_departure=long_json["time"]["scheduled"]["departure"]
+        # time_real_departure=long_json["time"]["real"]["departure"]
+        # time_scheduled_arrival=long_json["time"]["scheduled"]["arrival"]
+        # time_estimated_arrival=long_json["time"]["estimated"]["arrival"]
+        # latitude=long_json["trail"][0]["lat"]
+        # longitude=long_json["trail"][0]["lng"]
+        # altitude=long_json["trail"][0]["alt"]
+        # speed=long_json["trail"][0]["spd"]
+        # heading=long_json["trail"][0]["hd"]
 
         if flight_number:
-            print("Flight is called "+flight_number)
+            print("Flight is called " + flight_number)
         elif flight_callsign:
-            print("No flight number, callsign is "+flight_callsign)
+            print("No flight number, callsign is " + flight_callsign)
         else:
             print("No number or callsign for this flight.")
-
 
         # Set up to 6 of the values above as text for display_flights to put on the screen
         # Short strings get placed on screen, then longer ones scroll over each in sequence
@@ -339,19 +350,19 @@ def parse_details_json():
         global label3_short
         global label3_long
 
-        label1_short=flight_number
-        label1_long=airline_name
-        label2_short=airport_origin_code+"-"+airport_destination_code
-        label2_long=airport_origin_name+"-"+airport_destination_name
-        label3_short=aircraft_code
-        label3_long=aircraft_model
+        label1_short = flight_number
+        label1_long = airline_name
+        label2_short = airport_origin_code + "-" + airport_destination_code
+        label2_long = airport_origin_name + "-" + airport_destination_name
+        label3_short = aircraft_code
+        label3_long = aircraft_model
 
-        label1_short = label1_short or ''
-        label1_long = label1_long or ''
-        label2_short = label2_short or ''
-        label2_long = label2_long or ''
-        label3_short = label3_short or ''
-        label3_long = label3_long or ''
+        label1_short = label1_short or ""
+        label1_long = label1_long or ""
+        label2_short = label2_short or ""
+        label2_long = label2_long or ""
+        label3_short = label3_short or ""
+        label3_long = label3_long or ""
 
         # optional filter example - check things and return false if you want
 
@@ -359,92 +370,96 @@ def parse_details_json():
         #    print("Altitude Filter matched so don't display anything")
         #    return False
 
-    except (KeyError, ValueError,TypeError) as e:
+    except (KeyError, ValueError, TypeError) as e:
         print("JSON error")
-        print (e)
+        print(e)
         return False
 
     gc.collect()
     return True
 
+
 # Blank the display when a flight is no longer found
 def clear_flight():
-    label1.text=label2.text=label3.text=""
+    label1.text = label2.text = label3.text = ""
+
 
 # Scroll a label, start at the right edge of the screen and go left one pixel at a time
 # Until the right edge of the label reaches the left edge of the screen
 def scroll(line):
-    line.x=DISPLAY_WIDTH
-    for i in range(DISPLAY_WIDTH+1,0-line.bounding_box[2],-1):
-        line.x=i
+    line.x = DISPLAY_WIDTH
+    for i in range(DISPLAY_WIDTH + 1, 0 - line.bounding_box[2], -1):
+        line.x = i
         w.feed()
         time.sleep(TEXT_SPEED)
+
 
 # Scroll the plane bitmap right to left (same direction as scrolling text)
 def plane_animation():
     display.root_group = planeG
-    planeG.y=28
-    for i in range(DISPLAY_WIDTH,-5,-1):
-        planeG.x=i
+    planeG.y = 28
+    for i in range(DISPLAY_WIDTH, -5, -1):
+        planeG.x = i
         w.feed()
         time.sleep(PLANE_SPEED)
+
 
 # Populate the labels, then scroll longer versions of the text
 def display_flight():
     display.root_group = g
 
-    label1.text=label1_short
-    label2.text=label2_short
-    label3.text=label3_short
+    label1.text = label1_short
+    label2.text = label2_short
+    label3.text = label3_short
     time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
 
-    label1.x=DISPLAY_WIDTH
-    label1.text=label1_long
+    label1.x = DISPLAY_WIDTH
+    label1.text = label1_long
     scroll(label1)
-    label1.text=label1_short
-    label1.x=1
-    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
-    
-    label2.x=DISPLAY_WIDTH
-    label2.text=label2_long
-    scroll(label2)
-    label2.text=label2_short
-    label2.x=1
-    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
-    
-    label3.x=DISPLAY_WIDTH
-    label3.text=label3_long
-    scroll(label3)
-    label3.text=label3_short
-    label3.x=1
+    label1.text = label1_short
+    label1.x = 1
     time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
 
-last_flight=''
+    label2.x = DISPLAY_WIDTH
+    label2.text = label2_long
+    scroll(label2)
+    label2.text = label2_short
+    label2.x = 1
+    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
+
+    label3.x = DISPLAY_WIDTH
+    label3.text = label3_long
+    scroll(label3)
+    label3.text = label3_short
+    label3.x = 1
+    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
+
+
+last_flight = ""
 
 while True:
 
-    w.feed()
-    print("memory free: " + str(gc.mem_free()))
-    flight_id=get_flights()
+    # print("memory free: " + str(gc.mem_free()))
+    flight_id = get_flights()
     w.feed()
 
     if flight_id:
-        if flight_id==last_flight:
+        if flight_id == last_flight:
             print("Same flight found, so keep showing it")
             display_flight()
         else:
             print("New flight " + flight_id + " found, clear display")
             clear_flight()
             if get_flight_details(flight_id):
-               if parse_details_json():
-                  plane_animation()
-                  display_flight()
-               else:
-                  print("error parsing JSON, skip displaying this flight")
+                if parse_details_json():
+                    plane_animation()
+                    display_flight()
+                else:
+                    print("error parsing JSON, skip displaying this flight")
             else:
-               print("error loading details, skip displaying this flight")
+                print("error loading details, skip displaying this flight")
 
-        last_flight=flight_id
+        last_flight = flight_id
     else:
         print("No flights found, clear display")
         clear_flight()
