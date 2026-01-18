@@ -1,33 +1,36 @@
+import supervisor
+
+#supervisor.runtime.autoreload = False
+
 import time
-from random import randrange
 import board
 import terminalio
-from adafruit_matrixportal.matrixportal import MatrixPortal
+#from adafruit_matrixportal.matrixportal import MatrixPortal
 from adafruit_portalbase.network import HttpError
 import adafruit_requests as requests
 import json
-
-import adafruit_display_text.label
-import board
-import displayio
-import framebufferio
-import rgbmatrix
-import terminalio
+import wifi
+import socketpool
 import gc
+import rgbmatrix
+import ssl
+import framebufferio
+import adafruit_display_text.label
+import displayio
+import secrets
 
-import busio
-from digitalio import DigitalInOut
-import neopixel
-from adafruit_esp32spi import adafruit_esp32spi
-from adafruit_esp32spi import adafruit_esp32spi_wifimanager
+from displayio import Group
 
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
 
-w.timeout=16 # timeout in seconds
+# Release any existing displays
+displayio.release_displays()
+
+w.timeout = 16 # timeout in seconds
 w.mode = WatchDogMode.RESET
 
-FONT=terminalio.FONT
+FONT = terminalio.FONT
 
 try:
     from secrets import secrets
@@ -35,29 +38,32 @@ except ImportError:
     print("Secrets including geo are kept in secrets.py, please add them there!")
     raise
 
-# How often to query fr24 - quick enough to catch a plane flying over, not so often as to cause any issues, hopefully
-QUERY_DELAY=30
-#Area to search for flights, see secrets file
-BOUNDS_BOX=secrets["bounds_box"]
+# --- Matrix Properties ---
+DISPLAY_WIDTH = 64
+DISPLAY_HEIGHT = 64
+
+# Area to search for flights, see secrets file
+BOUNDS_BOX = secrets["bounds_box"]
 
 # Colours and timings
-ROW_ONE_COLOUR=0xEE82EE
-ROW_TWO_COLOUR=0x4B0082
-ROW_THREE_COLOUR=0xFFA500
-PLANE_COLOUR=0x4B0082
+ROW_ONE_COLOUR = 0xEE82EE
+ROW_TWO_COLOUR = 0x4B0082
+ROW_THREE_COLOUR = 0xFFA500
+PLANE_COLOUR = 0x4B0082
+
 # Time in seconds to wait between scrolling one label and the next
-PAUSE_BETWEEN_LABEL_SCROLLING=3
+PAUSE_BETWEEN_LABEL_SCROLLING = 3
+
 # speed plane animation will move - pause time per pixel shift in seconds
-PLANE_SPEED=0.04
+PLANE_SPEED = 0.04
+
 # speed text labels will move - pause time per pixel shift in seconds
-TEXT_SPEED=0.04
+TEXT_SPEED = 0.04
 
 #URLs
 FLIGHT_SEARCH_HEAD="https://data-cloud.flightradar24.com/zones/fcgi/feed.js?bounds="
 FLIGHT_SEARCH_TAIL="&faa=1&satellite=1&mlat=1&flarm=1&adsb=1&gnd=0&air=1&vehicles=0&estimated=0&maxage=14400&gliders=0&stats=0&ems=1&limit=1"
 FLIGHT_SEARCH_URL=FLIGHT_SEARCH_HEAD+BOUNDS_BOX+FLIGHT_SEARCH_TAIL
-# Deprecated URL used to return less JSON than the long details URL, but can give ambiguous results
-# FLIGHT_DETAILS_HEAD="https://api.flightradar24.com/common/v1/flight/list.json?&fetchBy=flight&page=1&limit=1&maxage=14400&query="
 
 # Used to get more flight details with a fr24 flight ID from the initial search
 FLIGHT_LONG_DETAILS_HEAD="https://data-live.flightradar24.com/clickhandler/?flight="
@@ -69,25 +75,48 @@ rheaders = {
      "accept": "application/json"
 }
 
-esp32_cs = DigitalInOut(board.ESP_CS)
-esp32_ready = DigitalInOut(board.ESP_BUSY)
-esp32_reset = DigitalInOut(board.ESP_RESET)
-spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
-status_light = neopixel.NeoPixel(
-    board.NEOPIXEL, 1, brightness=0.2
-)
-wifi = adafruit_esp32spi_wifimanager.ESPSPI_WiFiManager(esp, secrets, status_light,debug=False,attempts=1)
+print("Connecting to WiFi...")
+wifi.radio.connect(secrets["ssid"], secrets["password"])
+print("Connected to WiFi")
 
-# Top level matrixportal object
-matrixportal = MatrixPortal(
-    headers=rheaders,
-    esp=esp,
-    rotation=0,
-    debug=False
+pool = socketpool.SocketPool(wifi.radio)
+ssl_context = ssl.create_default_context()
+requests = requests.Session(pool, ssl_context)
+
+# --- Matrix setup ---
+BIT_DEPTH = 2
+matrix = rgbmatrix.RGBMatrix(
+    width=DISPLAY_WIDTH,
+    height=DISPLAY_HEIGHT,
+    bit_depth=BIT_DEPTH,
+    rgb_pins=[
+        board.MTX_B1,
+        board.MTX_G1,
+        board.MTX_R1,
+        board.MTX_B2,
+        board.MTX_G2,
+        board.MTX_R2,
+    ],
+    addr_pins=[
+        board.MTX_ADDRA,
+        board.MTX_ADDRB,
+        board.MTX_ADDRC,
+        board.MTX_ADDRD,
+        board.MTX_ADDRE,
+    ],
+    clock_pin=board.MTX_CLK,
+    latch_pin=board.MTX_LAT,
+    output_enable_pin=board.MTX_OE,
+    tile=1,
+    serpentine=True,
+    doublebuffer=True,
 )
 
-# Some memory shenanigans - the matrixportal doesn't do great at assigning big strings dynamically. So we create a big static array to put the JSON results in each time.
+display = framebufferio.FramebufferDisplay(matrix, auto_refresh=True)
+
+# Some memory shenanigans - the matrixportal doesn't do great at assigning big
+# strings dynamically. So we create a big static array to put the JSON results
+# in each time.
 json_size=14336
 json_bytes=bytearray(json_size)
 
@@ -102,31 +131,23 @@ planeBmp[1,4]=planeBmp[2,4]=planeBmp[3,4]=planeBmp[4,4]=planeBmp[5,4]=planeBmp[6
 planeBmp[1,5]=planeBmp[2,5]=planeBmp[3,5]=planeBmp[4,5]=planeBmp[5,5]=planeBmp[6,5]=planeBmp[7,5]=planeBmp[8,5]=planeBmp[9,5]=1
 planeBmp[9,6]=planeBmp[5,6]=planeBmp[4,6]=planeBmp[3,6]=1
 planeBmp[6,9]=planeBmp[6,8]=planeBmp[5,8]=planeBmp[4,7]=planeBmp[5,7]=planeBmp[6,7]=1
-planeTg= displayio.TileGrid(planeBmp, pixel_shader=planePalette)
-planeG=displayio.Group(x=matrixportal.display.width+12,y=10)
+planeTg = displayio.TileGrid(planeBmp, pixel_shader=planePalette)
+planeG = displayio.Group(x=matrix.width+3,y=4)
 planeG.append(planeTg)
 
-# We can fit three rows of text on a panel, so one label for each. We'll change their text as needed
-label1 = adafruit_display_text.label.Label(
-    FONT,
-    color=ROW_ONE_COLOUR,
-    text="")
+# We can fit three rows of text on a panel, so one label for each.
+# We'll change their text as needed
+label1 = adafruit_display_text.label.Label(FONT, color=ROW_ONE_COLOUR, text="")
 label1.x = 1
-label1.y = 4
+label1.y = 5
 
-label2 = adafruit_display_text.label.Label(
-    FONT,
-    color=ROW_TWO_COLOUR,
-    text="")
+label2 = adafruit_display_text.label.Label(FONT, color=ROW_TWO_COLOUR, text="")
 label2.x = 1
-label2.y = 15
+label2.y = 32
 
-label3 = adafruit_display_text.label.Label(
-    FONT,
-    color=ROW_THREE_COLOUR,
-    text="")
+label3 = adafruit_display_text.label.Label(FONT, color=ROW_THREE_COLOUR, text="")
 label3.x = 1
-label3.y = 25
+label3.y = 43
 
 # text strings to go in the labels
 label1_short=''
@@ -136,82 +157,73 @@ label2_long=''
 label3_short=''
 label3_long=''
 
-# Add the labels to the display
-g = displayio.Group()
+# Initialize the main display group
+g = Group()
 g.append(label1)
 g.append(label2)
 g.append(label3)
-matrixportal.display.show(g)
 
-# Scroll the plane bitmap right to left (same direction as scrolling text)
-def plane_animation():
-    matrixportal.display.show(planeG)
-    for i in range(matrixportal.display.width+24,-12,-1):
-            planeG.x=i
-            w.feed()
-            time.sleep(PLANE_SPEED)
-            #matrixportal.display.refresh(minimum_frames_per_second=0)
+display.root_group = g
+display.refresh()
 
-# Scroll a label, start at the right edge of the screen and go left one pixel at a time
-# Until the right edge of the label reaches the left edge of the screen
-def scroll(line):
-    line.x=matrixportal.display.width
-    for i in range(matrixportal.display.width+1,0-line.bounding_box[2],-1):
-        line.x=i
+def checkConnection():
+    print("Check and reconnect WiFi")
+    attempts = 10
+    attempt = 1
+    while (not wifi.radio.connected) and attempt < attempts:
+        print("Connect attempt " + str(attempt) + " of " + str(attempts))
+        print("Reconnecting to WiFi...")
         w.feed()
-        time.sleep(TEXT_SPEED)
-        #matrixportal.display.refresh(minimum_frames_per_second=0)
-        
+        try:
+            wifi.radio.connect(secrets["ssid"], secrets["password"])
+        except OSError as e:
+            print(e.__class__.__name__ + "--------------------------------------")
+            print(e)
+        attempt += 1
+    if wifi.radio.connected:
+        print("Successfully connected.")
+    else:
+        print("Failed to connect.")
 
-# Populate the labels, then scroll longer versions of the text
-def display_flight():
+# Look for flights overhead
+def get_flights():
 
-    matrixportal.display.show(g)
-    label1.text=label1_short
-    label2.text=label2_short
-    label3.text=label3_short
-    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
-    
-    label1.x=matrixportal.display.width+1
-    label1.text=label1_long
-    scroll(label1)
-    label1.text=label1_short
-    label1.x=1
-    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
-    
-    label2.x=matrixportal.display.width+1
-    label2.text=label2_long
-    scroll(label2)
-    label2.text=label2_short
-    label2.x=1
-    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
-    
-    label3.x=matrixportal.display.width+1
-    label3.text=label3_long
-    scroll(label3)
-    label3.text=label3_short
-    label3.x=1
-    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
+    start_time = time.monotonic()
+    print("Fetching flight...")
 
-# Blank the display when a flight is no longer found
-def clear_flight():
-    label1.text=label2.text=label3.text=""
+    try:
+        response=requests.get(url=FLIGHT_SEARCH_URL,headers=rheaders).json()
+    except (RuntimeError,OSError, HttpError, ValueError, requests) as e:
+        print(e.__class__.__name__+"--------------------------------------")
+        print(e)
+        checkConnection()
+        return False
 
+    if len(response)==3:
+        for flight_id, flight_info in response.items():
+            # the JSON has three main fields, we want the one that's a flight ID
+            if not (flight_id=="version" or flight_id=="full_count"):
+                if len(flight_info)>13:
+                    elapsed_time = time.monotonic() - start_time
+                    print("Fetched flight " + flight_id + " in " + str(elapsed_time) + " seconds")
+                    return flight_id
+    else:
+        return False
 
 # Take the flight ID we found with a search, and load details about it
 def get_flight_details(fn):
 
-    # the JSON from FR24 is too big for the matrixportal memory to handle. So we load it in chunks into our static array,
-    # as far as the big "trails" section of waypoints at the end of it, then ignore most of that part. Should be about 9KB, we have 14K before we run out of room..
+    # the JSON from FR24 is too big for the matrixportal memory to handle. So we
+    # load it in chunks into our static array, as far as the big "trails" section
+    # of waypoints at the end of it, then ignore most of that part. Should be
+    # about 9KB, we have 14K before we run out of room..
     global json_bytes
     global json_size
     byte_counter=0
     chunk_length=1024
-    success=False
 
     # zero out any old data in the byte array
-    for i in range(0,json_size):
-        json_bytes[i]=0
+    json_bytes[:] = b'\x00' * json_size
 
     # Get the URL response one chunk at a time
     try:
@@ -226,17 +238,21 @@ def get_flight_details(fn):
                 print("Exceeded max string size while parsing JSON")
                 return False
 
-            # check if this chunk contains the "trail:" tag which is the last bit we care about
+            # check if this chunk contains the "trail:" tag which is the last bit
+            # we care about
             trail_start=json_bytes.find((b"\"trail\":"))
             byte_counter+=len(chunk)
 
-            # if it does, find the first/most recent of the many trail entries, giving us things like speed and heading
+            # if it does, find the first/most recent of the many trail entries,
+            # giving us things like speed and heading
             if not trail_start==-1:
-                # work out the location of the first } character after the "trail:" tag, giving us the first entry
+                # work out the location of the first } character after the
+                # "trail:" tag, giving us the first entry
                 trail_end=json_bytes[trail_start:].find((b"}"))
                 if not trail_end==-1:
                     trail_end+=trail_start
-                    # characters to add to make the whole JSON object valid, since we're cutting off the end
+                    # characters to add to make the whole JSON object valid,
+                    # since we're cutting off the end
                     closing_bytes=b'}]}'
                     for i in range (0,len(closing_bytes)):
                         json_bytes[trail_end+i]=closing_bytes[i]
@@ -247,19 +263,21 @@ def get_flight_details(fn):
 
                     # Stop reading chunks
                     print("Details lookup saved "+str(trail_end)+" bytes.")
+                    gc.collect()
                     return True
-    # Handle occasional URL fetching errors            
+    # Handle occasional URL fetching errors
     except (RuntimeError, OSError, HttpError) as e:
             print("Error--------------------------------------------------")
             print(e)
             return False
 
-    #If we got here we got through all the JSON without finding the right trail entries
+    # If we got here we got through all the JSON without finding the right
+    # trail entries
     print("Failed to find a valid trail entry in JSON")
     return False
-    
 
-# Look at the byte array that fetch_details saved into and extract any fields we want
+# Look at the byte array that fetch_details saved into and extract any
+# fields we want
 def parse_details_json():
 
     global json_bytes
@@ -268,10 +286,10 @@ def parse_details_json():
         # get the JSON from the bytes
         long_json=json.loads(json_bytes)
 
-        # Some available values from the JSON. Put the details URL and a flight ID in your browser and have a look for more.
+        # Some available values from the JSON. Put the details URL and a
+        # flight ID in your browser and have a look for more.
 
         flight_number=long_json["identification"]["number"]["default"]
-        #print(flight_number)
         flight_callsign=long_json["identification"]["callsign"]
         aircraft_code=long_json["aircraft"]["model"]["code"]
         aircraft_model=long_json["aircraft"]["model"]["text"]
@@ -328,19 +346,12 @@ def parse_details_json():
         label3_short=aircraft_code
         label3_long=aircraft_model
 
-        if not label1_short:
-            label1_short=''
-        if not label1_long:
-            label1_long=''
-        if not label2_short:
-            label2_short=''
-        if not label2_long:
-            label2_long=''
-        if not label3_short:
-            label3_short=''
-        if not label3_long:
-            label3_long=''
-
+        label1_short = label1_short or ''
+        label1_long = label1_long or ''
+        label2_short = label2_short or ''
+        label2_long = label2_long or ''
+        label3_short = label3_short or ''
+        label3_long = label3_long or ''
 
         # optional filter example - check things and return false if you want
 
@@ -353,101 +364,90 @@ def parse_details_json():
         print (e)
         return False
 
-
+    gc.collect()
     return True
 
+# Blank the display when a flight is no longer found
+def clear_flight():
+    label1.text=label2.text=label3.text=""
 
-def checkConnection():
-    print("Check and reconnect WiFi")
-    attempts=10
-    attempt=1
-    while (not esp.status == adafruit_esp32spi.WL_CONNECTED) and attempt<attempts:
-        print("Connect attempt "+str(attempt)+" of "+str(attempts))
-        print("Reset ESP...")
+# Scroll a label, start at the right edge of the screen and go left one pixel at a time
+# Until the right edge of the label reaches the left edge of the screen
+def scroll(line):
+    line.x=DISPLAY_WIDTH
+    for i in range(DISPLAY_WIDTH+1,0-line.bounding_box[2],-1):
+        line.x=i
         w.feed()
-        wifi.reset()
-        print("Attempt WiFi connect...")
+        time.sleep(TEXT_SPEED)
+
+# Scroll the plane bitmap right to left (same direction as scrolling text)
+def plane_animation():
+    display.root_group = planeG
+    planeG.y=28
+    for i in range(DISPLAY_WIDTH,-5,-1):
+        planeG.x=i
         w.feed()
-        try:
-            wifi.connect()
-        except OSError as e:
-            print(e.__class__.__name__+"--------------------------------------")
-            print(e)
-        attempt+=1
-    if esp.status == adafruit_esp32spi.WL_CONNECTED:
-        print("Successfully connected.")
-    else:
-        print("Failed to connect.")
+        time.sleep(PLANE_SPEED)
 
+# Populate the labels, then scroll longer versions of the text
+def display_flight():
+    display.root_group = g
 
-# Look for flights overhead
-def get_flights():
-    matrixportal.url=FLIGHT_SEARCH_URL
-    try:
-        #response = json.loads(matrixportal.fetch())
-        response=requests.get(url=FLIGHT_SEARCH_URL,headers=rheaders).json()
-    except (RuntimeError,OSError, HttpError, ValueError, requests.OutOfRetries) as e:
-        print(e.__class__.__name__+"--------------------------------------")
-        print(e)
-        checkConnection()
-        return False
-    if len(response)==3:
-        #print ("Flight found.")
-        for flight_id, flight_info in response.items():
-            # the JSON has three main fields, we want the one that's a flight ID
-            if not (flight_id=="version" or flight_id=="full_count"):
-                if len(flight_info)>13:
-                    return flight_id
-    else:
-        return False
+    label1.text=label1_short
+    label2.text=label2_short
+    label3.text=label3_short
+    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
 
-
-
-# Actual doing of things - loop forever quering fr24, processing any results and waiting to query again
-
-checkConnection()
+    label1.x=DISPLAY_WIDTH
+    label1.text=label1_long
+    scroll(label1)
+    label1.text=label1_short
+    label1.x=1
+    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
+    
+    label2.x=DISPLAY_WIDTH
+    label2.text=label2_long
+    scroll(label2)
+    label2.text=label2_short
+    label2.x=1
+    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
+    
+    label3.x=DISPLAY_WIDTH
+    label3.text=label3_long
+    scroll(label3)
+    label3.text=label3_short
+    label3.x=1
+    time.sleep(PAUSE_BETWEEN_LABEL_SCROLLING)
 
 last_flight=''
+
 while True:
 
-    #checkConnection()
-
     w.feed()
-
-    #print("memory free: " + str(gc.mem_free()))
-
-    #print("Get flights...")
+    print("memory free: " + str(gc.mem_free()))
     flight_id=get_flights()
     w.feed()
-    
 
     if flight_id:
         if flight_id==last_flight:
             print("Same flight found, so keep showing it")
+            display_flight()
         else:
-            print("New flight "+flight_id+" found, clear display")
+            print("New flight " + flight_id + " found, clear display")
             clear_flight()
             if get_flight_details(flight_id):
-                w.feed()
-                gc.collect()
-                if parse_details_json():
-                    gc.collect()
-                    plane_animation()
-                    display_flight()
-                else:
-                    print("error parsing JSON, skip displaying this flight")
+               if parse_details_json():
+                  plane_animation()
+                  display_flight()
+               else:
+                  print("error parsing JSON, skip displaying this flight")
             else:
-                print("error loading details, skip displaying this flight")
-            
-            last_flight=flight_id
+               print("error loading details, skip displaying this flight")
+
+        last_flight=flight_id
     else:
-        #print("No flights found, clear display")
+        print("No flights found, clear display")
         clear_flight()
-    
+
+    w.feed()
     time.sleep(5)
-
-
-    for i in range(0,QUERY_DELAY,+5):
-        time.sleep(5)
-        w.feed()
-    gc.collect()
